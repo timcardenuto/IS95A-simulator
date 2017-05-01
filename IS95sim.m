@@ -8,6 +8,15 @@ BTS_num = 19;
 BTS_radius = 1000;      % meters
 BTS_channel_num = 3;   % traffic channels
 
+
+
+% TODO call mobility doesn't seem to be enough to cause
+% handoffs, or power levels aren't set well....
+T_ADD = -230;   % TODO set these elsewhere
+T_DROP = -260;
+T_TDROP = 5;
+
+
 % build matrix of BTS locations 
 BTS_locations = zeros(2,BTS_num);
 BTS_locations(:,1) = [ center; center ];    % first BTS in center
@@ -113,11 +122,6 @@ end
 
 %% determine initial BTS assignment for 1st mobile
 
-
-
-%% simulation time, 10s update rate
-% draw calls as they pop up and connect line to nearest BTS
-
 % initialize first call
 current_calls = 1; % track indexes for mobiles that are still in a call
 K1 = 0;                     % some constant depending on environment
@@ -133,12 +137,13 @@ mobile(current_calls(1)).BTS = btsindex(1);
 mobile(current_calls(1)).active(1) = btsindex(1);
 BTS(mobile(current_calls(1)).BTS).free_channels = BTS(mobile(current_calls(1)).BTS).free_channels - 1;
 
+rssplot = figure();
+hold on
+plot(0,RSS,'.k')
 
-% TODO call mobility doesn't seem to be enough to cause
-% handoffs, or power levels aren't set well....
-T_ADD = -230;   % TODO set these elsewhere
-T_DROP = -260;
-T_TDROP = 5;
+
+%% simulation time, 10s update rate
+% draw calls as they pop up and connect line to nearest BTS
 
 
 figure(map)
@@ -148,23 +153,13 @@ calls.XDataSource = 'callx';
 calls.YDataSource = 'cally';
 currentbts = plot(rand(2,num_calls*length(mobile(1).active))); % length has to match the tempx/tempy length, pad them
 
-% for k = 1:numel(currentbts)
-%     set(currentbts(k), 'XDataSource', sprintf('currentbtsx(%d,:)', k), ...
-%                        'YDataSource', sprintf('currentbtsy(%d,:)', k))
-% end
-
-% 
-% 
-% currentbts.XDataSource = 'currentbtsx';
-% currentbts.YDataSource = 'currentbtsy';
-
 % simulation length is total call time
 callcount = [];
 time_step = 5;
 for time=time_step:time_step:mobile(num_calls).call_end_time
     disp(' ');
     disp(['Simulation Time ',num2str(time),' ----------------------']);
-
+    
     figure(timeline)
     plot([time time],[0 num_calls], '--r')        
     
@@ -180,15 +175,17 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     tempx(:)={[center center]};
     tempy(:)={[center center]};
     tempc(:)={'blue'};
+    
+    rss = [RSS];
+    
     i = 1;
     while ( i < length(current_calls)+1 && isempty(current_calls) == 0)  % loop thru all current calls
 
         % remove completed calls
-        if (mobile(current_calls(i)).call_end_time < time)  % any calls ended?
-            %disp('-- removed call')
-            % free up channel from BTS being used
-            BTS(mobile(current_calls(i)).BTS).free_channels = BTS(mobile(current_calls(i)).BTS).free_channels + 1; 
+        if (mobile(current_calls(i)).call_end_time < time)
+            BTS = freeChannels(mobile(current_calls(i)).active, BTS); % free channels from BTS being used
             current_calls(i) = [];                          % remove call
+            disp('-- removed call')
             continue;                                       % handle next call in while loop
         end
         
@@ -226,14 +223,6 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
         % handoffs, deregister when call is done. There are several ways
         % to simulate this process.
         % 
-        %
-        % SIMPLE
-        % Simply assign BTS with highest power Pilot Channel to MS, check 
-        % for new highest power BTS every simulation time step. All BTS
-        % in the simulation space are treated as a single Set in order of
-        % RSS by the MS.
-        %
-        % REALISTIC
         % The MS maintains multiple sets - Active, Candidate, Neighbor,
         % Remaining. The sets are maintained based on power thresholds
         % T_ADD and T_DROP, with the timer T_TDROP
@@ -300,30 +289,31 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
             if (RSS(n) < T_DROP)
                 if (find(mobile(current_calls(i)).active==n))           % if BTS in active 
                     bts = find(mobile(current_calls(i)).active==n);
-                    if (mobile(current_calls(i)).activetimer(bts)==0)   % if timer not started
-                        mobile(current_calls(i)).activetimer(bts) = 1;
-                        disp(['-- STARTING MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts)), ' for BTS ',num2str(n)]);
-                    else                                                % update timer
-                        mobile(current_calls(i)).activetimer(bts) = mobile(current_calls(i)).activetimer(bts) + time_step;
-                        disp(['-- UPDATING MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts)), ' for BTS ',num2str(n)]);
-                    end
+                    for q=1:length(bts)
+                        if (mobile(current_calls(i)).activetimer(bts(q))==0)   % if timer not started
+                            mobile(current_calls(i)).activetimer(bts(q)) = 1;
+                            disp(['-- STARTING MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts(q))), ' for BTS ',num2str(n)]);
+                        else                                                % update timer
+                            mobile(current_calls(i)).activetimer(bts(q)) = mobile(current_calls(i)).activetimer(bts(q)) + time_step;
+                            disp(['-- UPDATING MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts(q))), ' for BTS ',num2str(n)]);
+                        end
 
-                    if (mobile(current_calls(i)).activetimer(bts) > T_TDROP)    % if the timer has been on longer than T_TDROP
-                        disp(['-- EXPIRED MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts)), ' for BTS ',num2str(n)]);
-                        mobile(current_calls(i)).active(bts) = 0;               % drop it from active
-                        mobile(current_calls(i)).activetimer(bts) = 0;
-                        BTS(n).free_channels = BTS(n).free_channels + 1;        % return freed channel to BTS
-                        if (find(mobile(current_calls(i)).neighbor==0)),           % if neighbor set has open slot
-                            openindex = find(mobile(current_calls(i)).neighbor==0);
-                            mobile(current_calls(i)).neighbor(openindex(1)) = n;   % add BTS to neighbor set
-                            disp(['-- moved BTS ',num2str(n),' channel to MS ',num2str(current_calls(i)),' Neighbor set']);
-                        else                                                       % neighbor set is full, add to remaining set
-%                             openindex = find(mobile(current_calls(i)).remaining==0);
-%                             mobile(current_calls(i)).remaining(openindex(1)) = n;  % add BTS to remaining set
-%                             disp(['-- moved BTS ',num2str(n),' channel to MS ',num2str(current_calls(i)),' Remaining set']);
+                        if (mobile(current_calls(i)).activetimer(bts(q)) > T_TDROP)    % if the timer has been on longer than T_TDROP
+                            disp(['-- EXPIRED MS ', num2str(current_calls(i)), ' Active channel timer ', num2str(mobile(current_calls(i)).activetimer(bts(q))), ' for BTS ',num2str(n)]);
+                            mobile(current_calls(i)).active(bts(q)) = 0;               % drop it from active
+                            mobile(current_calls(i)).activetimer(bts(q)) = 0;
+                            BTS(n).free_channels = BTS(n).free_channels + 1;        % return freed channel to BTS
+                            if (find(mobile(current_calls(i)).neighbor==0)),           % if neighbor set has open slot
+                                openindex = find(mobile(current_calls(i)).neighbor==0);
+                                mobile(current_calls(i)).neighbor(openindex(1)) = n;   % add BTS to neighbor set
+                                disp(['-- moved BTS ',num2str(n),' channel to MS ',num2str(current_calls(i)),' Neighbor set']);
+                            else                                                       % neighbor set is full, add to remaining set
+    %                             openindex = find(mobile(current_calls(i)).remaining==0);
+    %                             mobile(current_calls(i)).remaining(openindex(1)) = n;  % add BTS to remaining set
+    %                             disp(['-- moved BTS ',num2str(n),' channel to MS ',num2str(current_calls(i)),' Remaining set']);
+                            end
                         end
                     end
-
                 elseif (find(mobile(current_calls(i)).candidate==n))    % if BTS in candidate sets
                     index = find(mobile(current_calls(i)).candidate==n);
                     if (mobile(current_calls(i)).candidatetimer(index)==0) % if timer not started
@@ -372,7 +362,6 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
 %             pause;
         end  % loops through each BTS connections with 1 MS
         
-        % TODO - graph pilot RSS over time for given MS
         
         % plot all active connections (variable)
         for k=1:length(mobile(current_calls(i)).active)
@@ -383,15 +372,17 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                 if (k==1)
                     tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'blue'};
                 elseif (k==2 && mobile(current_calls(i)).active(k) == mobile(current_calls(i)).active(k-1))
-                    tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'red'};
+                    tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'green'};
                 elseif (k==3 && (mobile(current_calls(i)).active(k) == mobile(current_calls(i)).active(k-1) || mobile(current_calls(i)).active(k) == mobile(current_calls(i)).active(k-2)))
-                    tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'red'};
+                    tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'green'};
                 else
                     tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'blue'};
                 end
             end
         end
 
+        rss = [rss; RSS];
+        
         i = i + 1;
     end % loop through all current calls
     
@@ -406,7 +397,8 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     for j=1:length(current_calls)   % plots movement for this time_step
         plot([oldx(j) newx(j)],[oldy(j) newy(j)],'r')
     end
-    pause;
+    
+    
     %---------------------------------------------------------------------
     % NOTE
     % This section handles adding new MS as the simulation progresses, it
@@ -428,7 +420,7 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                 distance = sqrt((BTS(n).x - mobile(j).x)^2 + (BTS(n).y - mobile(j).y)^2);
                 RSS(n) = K1 - K2*log(distance) + S;
             end
-            
+            rss = [rss; RSS]
             % TODO should evaluate all the same channel/set stuff as above
             % for new calls... make it a function
             
@@ -474,6 +466,12 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
             end
         end
     end % loop num_calls
+    
+    
+    % graph pilot RSS over time for given MS
+    figure(rssplot)
+    hold on
+    plot(time,rss)
     
     drawnow;
 %     pause;
