@@ -1,61 +1,30 @@
 clc
 clear
 
-center = 10000;     % plot center in meters from 0,0 point, first BTS
-area = [5000 15000; 5000 15000];
-
 BTS_num = 19;
+BTS_center = 10000;     % plot center in meters from 0,0 point, first BTS
 BTS_radius = 1000;      % meters
 BTS_channel_num = 3;   % traffic channels
+num_calls = 100;
+call_arrival_mean = 6;    % seconds, minutes??
+call_duration_mean = 120; % seconds
+velocity_mean = 6;
+velocity_stddev = 10;
+velocity_limit = 16;
 
-
-
-% TODO call mobility doesn't seem to be enough to cause
-% handoffs, or power levels aren't set well....
-T_ADD = -230;   % TODO set these elsewhere
+% TODO call mobility doesn't seem to be enough to cause handoffs, or power levels aren't set well....
+T_ADD = -230;
 T_DROP = -260;
 T_TDROP = 5;
 
 
-% build matrix of BTS locations 
-BTS_locations = zeros(2,BTS_num);
-BTS_locations(:,1) = [ center; center ];    % first BTS in center
-num_BTS_in_ring = 6;
-i = 2;
-for n=1:BTS_num     % add rest of BTS circling out from the first one    
-    theta = 0:(2*pi/num_BTS_in_ring):2*pi-(2*pi/num_BTS_in_ring);
-    BTS_x = round(2*BTS_radius * cos(theta) + BTS_locations(1,n));  
-    BTS_y = round(2*BTS_radius * sin(theta) + BTS_locations(2,n));
-    
-    j = 1;
-    while (i <= BTS_num && j <= length(BTS_x))
-        % is this BTS_x, BTS_y already in the list? if not add it
-        find_x = find(BTS_locations(1,:)==BTS_x(j)); % returns column index
-        find_y = find(BTS_locations(2,:)==BTS_y(j)); % returns column index
-        if (isempty(intersect(find_x,find_y)))  % only add BTS if not already in the list
-            BTS_locations(:,i) = [ BTS_x(j); BTS_y(j) ];
-        	i = i + 1;
-        end
-        j = j + 1;
-    end
-
-end
-
-% TODO replace everything with these structs
-BTS = struct('x',0,'y',0,'radius',0,'free_channels',0);
-BTS(BTS_num).x = 0;     % pre-allocates structure memory
-for n=1:BTS_num
-    BTS(n).x = BTS_locations(1,n);
-    BTS(n).y = BTS_locations(2,n);
-    BTS(n).radius = BTS_radius;
-    BTS(n).free_channels = BTS_channel_num;
-end
+%% Generate Base Station (BTS) data structures and initialize 
+BTS = generateBTS(BTS_num, BTS_center, BTS_radius, BTS_channel_num);
             
             
 %% draw BTS locations
 map = figure();
 hold on
-% axis([ 7000 13000 7000 13000])
 xlabel('x (meters)');
 ylabel('y (meters)');
 title('IS-95 Simulation');
@@ -70,54 +39,24 @@ for n=1:BTS_num
 end
 
 
-%% Generate mobile call structure and initial data
-
-num_calls = 100;
-mobile = struct('x',0,'y',0,'direction',0,'velocity',0,'call_start_time',0,'call_end_time',0,'RSS',0,'BTS',0,'active',zeros(1,3),'activetimer',zeros(1,3),'candidate',zeros(1,6),'candidatetimer',zeros(1,6),'neighbor',zeros(1,6),'remaining',zeros(1,BTS_num*20));
-mobile(num_calls).x = 0;    % this pre-allocates the structure length
-for i=2:num_calls           % this ensures all values are initialized
-    mobile(i) = struct('x',0,'y',0,'direction',0,'velocity',0,'call_start_time',0,'call_end_time',0,'RSS',0,'BTS',0,'active',zeros(1,3),'activetimer',zeros(1,3),'candidate',zeros(1,6),'candidatetimer',zeros(1,6),'neighbor',zeros(1,6),'remaining',zeros(1,BTS_num*20));
-end
-
-for i=1:num_calls
-    % Generate initial x,y coordinates
-    rand_magnitude = randi(BTS_radius);
-    rand_angle = randi(360);
-    rand_BTS = randi(BTS_num);
-    mobile(i).x = rand_magnitude * cos(pi*rand_angle/180) + BTS(rand_BTS).x; % had sym('pi') previously...way faster without it
-    mobile(i).y = rand_magnitude * sin(pi*rand_angle/180) + BTS(rand_BTS).y;
-    
-    % Generate initial velocities and directions
-    mobile(i).direction = (unidrnd(360)/180)*pi; % in radians
-    mobile(i).velocity = normrnd(6,10);          % m/s ?
-    while ( mobile(i).velocity < 0 || mobile(i).velocity > 16 )
-        mobile(i).velocity = normrnd(6,10);      % try again
-    end
-
-    plot(mobile(i).x,mobile(i).y,'.r')     % plot call locations
-end
+%% Generate Mobile Station (MS) structures and initialize
+% TODO: this function will plot calls on whatever the last figure() was
+mobile = generateMS(num_calls, call_arrival_mean, call_duration_mean, ...
+                        BTS, BTS_num, BTS_radius, BTS_channel_num, ...
+                        velocity_mean, velocity_stddev, velocity_limit)
 
 
-%% Generate call start, duration, end properties
+%% Plot a way to visualize call overlap, start/end/duration properties 
 
-timeline = figure()                                    % plot a way to visualize call overlap                                   
+timeline = figure();                                 
 hold on
 xlabel('time (s)')
 ylabel('call #')
 title('call overlap')
 legend('call duration')
-
-call_interval = exprnd(6,[num_calls 1]);    % Poisson process has exponentially distributed inter-arrival times
-call_duration = exprnd(120,[num_calls 1]);  % average hold time = 120 seconds
 for i=1:num_calls
-    if (i>1)
-        mobile(i).call_start_time = mobile(i-1).call_start_time + call_interval(i-1);   % call start times
-    end
-    mobile(i).call_end_time = mobile(i).call_start_time + call_duration(i);         % call end times
-
     plot([mobile(i).call_start_time mobile(i).call_end_time],[i i], 'k')        
 end
-
 
 
 %% determine initial BTS assignment for 1st mobile
@@ -137,14 +76,22 @@ mobile(current_calls(1)).BTS = btsindex(1);
 mobile(current_calls(1)).active(1) = btsindex(1);
 BTS(mobile(current_calls(1)).BTS).free_channels = BTS(mobile(current_calls(1)).BTS).free_channels - 1;
 
-rssplot = figure();
-hold on
-plot(0,RSS,'.k')
+
 
 
 %% simulation time, 10s update rate
 % draw calls as they pop up and connect line to nearest BTS
 
+rssplot = figure();
+hold on
+plot(0,RSS,'.k')
+
+erlangs = figure();
+hold on
+grid on
+er1 = subplot(2,1,1);
+hold on
+er2 = subplot(2,1,2);
 
 figure(map)
 hold on
@@ -153,9 +100,11 @@ calls.XDataSource = 'callx';
 calls.YDataSource = 'cally';
 currentbts = plot(rand(2,num_calls*length(mobile(1).active))); % length has to match the tempx/tempy length, pad them
 
+
 % simulation length is total call time
 callcount = [];
 time_step = 5;
+lasttime = 0;
 for time=time_step:time_step:mobile(num_calls).call_end_time
     disp(' ');
     disp(['Simulation Time ',num2str(time),' ----------------------']);
@@ -164,7 +113,6 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     plot([time time],[0 num_calls], '--r')        
     
     figure(map)
-
     oldx = [];
     oldy = [];
     newx = [];
@@ -172,11 +120,12 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     tempx = cell(1,num_calls*length(mobile(1).active))';
     tempy = cell(1,num_calls*length(mobile(1).active))';
     tempc = cell(1,num_calls*length(mobile(1).active))';
-    tempx(:)={[center center]};
-    tempy(:)={[center center]};
+    tempx(:)={[BTS_center BTS_center]};
+    tempy(:)={[BTS_center BTS_center]};
     tempc(:)={'blue'};
     
     rss = [RSS];
+    num_active = 0;
     
     i = 1;
     while ( i < length(current_calls)+1 && isempty(current_calls) == 0)  % loop thru all current calls
@@ -189,29 +138,14 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
             continue;                                       % handle next call in while loop
         end
         
-        % update mobile position
-        %disp('update mobile position')
-        distance = time_step * mobile(current_calls(i)).velocity;   % update every 10 seconds
-
-        oldx = [ oldx mobile(current_calls(i)).x ];
-        oldy = [ oldy mobile(current_calls(i)).y ];
-
-        mobile(current_calls(i)).x = distance * cos(mobile(current_calls(i)).direction) + mobile(current_calls(i)).x;
-        mobile(current_calls(i)).y = distance * sin(mobile(current_calls(i)).direction) + mobile(current_calls(i)).y;
-
+        % update mobile position, velocity, direction
+%         oldx = [ oldx mobile(current_calls(i)).x ];
+%         oldy = [ oldy mobile(current_calls(i)).y ];
+        [mobile(current_calls(i)), lasttime] = updateMS(mobile(current_calls(i)), ...
+                            time, time_step, lasttime, ...
+                            velocity_mean, velocity_stddev, velocity_limit);
         newx = [ newx mobile(current_calls(i)).x ];
-        newy = [ newy mobile(current_calls(i)).y ];
-
-        % update mobile direction
-        %disp('update mobile direction')
-        mobile(current_calls(i)).direction = (unidrnd(360)/180)*pi; % in radians
-       
-        % update velocity
-        %disp('update mobile velocity')
-        mobile(current_calls(i)).velocity = normrnd(6,10);          % m/s ?
-        while ( mobile(current_calls(i)).velocity < 0 || mobile(current_calls(i)).velocity > 16 )
-            mobile(current_calls(i)).velocity = normrnd(6,10);      % try again
-        end
+        newy = [ newy mobile(current_calls(i)).y ];                    
         
         
         %-----------------------------------------------------------------
@@ -378,10 +312,12 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                 else
                     tempc(((i-1)*length(mobile(current_calls(i)).active))+k) = {'blue'};
                 end
+                
+                num_active = num_active + 1;
             end
         end
 
-        rss = [rss; RSS];
+        rss = [rss RSS];
         
         i = i + 1;
     end % loop through all current calls
@@ -394,9 +330,9 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     set(currentbts, {'XData'}, tempx)   % plots updated BTS connections 
     set(currentbts, {'YData'}, tempy)   % padded with centerpoint values, since length must be globally constant
     set(currentbts, {'Color'}, tempc)
-    for j=1:length(current_calls)   % plots movement for this time_step
-        plot([oldx(j) newx(j)],[oldy(j) newy(j)],'r')
-    end
+%     for j=1:length(current_calls)   % plots movement for this time_step
+%         plot([oldx(j) newx(j)],[oldy(j) newy(j)],'r')
+%     end
     
     
     %---------------------------------------------------------------------
@@ -420,7 +356,7 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                 distance = sqrt((BTS(n).x - mobile(j).x)^2 + (BTS(n).y - mobile(j).y)^2);
                 RSS(n) = K1 - K2*log(distance) + S;
             end
-            rss = [rss; RSS]
+            rss = [rss RSS];
             % TODO should evaluate all the same channel/set stuff as above
             % for new calls... make it a function
             
@@ -461,17 +397,36 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                 for k=1:length(mobile(j).active)
                     if (mobile(j).active(k) ~= 0)
 %                         plot([mobile(j).x BTS(mobile(j).active(k)).x],[mobile(j).y, BTS(mobile(j).active(k)).y],'--k')
+                        num_active = num_active + 1;
                     end
                 end
             end
         end
     end % loop num_calls
     
+    % Plot metrics, perform error checks
+    figure(erlangs)
+    grid on
+    hold on
+    plot(er1,time,num_active,'*k')
+    hold on
+    total_free = 0;
+    for q=1:BTS_num
+       total_free = total_free + sum(BTS(q).free_channels);
+    end
+    plot(er1,time,total_free,'*r')
+    plot(er2,time,num_active/(BTS_num*BTS_channel_num),'*k')
+
+    % error check, this should never happen
+    if (num_active+total_free ~= BTS_num*BTS_channel_num)
+        disp('##### ERROR: Num active + free channels != total number of channels #####')
+        return
+    end
     
-    % graph pilot RSS over time for given MS
+    % Plot RSS over time, use to determine average, dynamic range
     figure(rssplot)
     hold on
-    plot(time,rss)
+    plot(time,rss,'.k')
     
     drawnow;
 %     pause;
