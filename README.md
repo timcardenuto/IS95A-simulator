@@ -7,5 +7,5 @@ This project provides a "simple" simulation of an IS-95A cellular network. It do
 
  * fix RSS calculation - it's reporting between -150 and -250 dB which is just really low for 1000 meter radius.
  * break out into functions for better readability
- * add Fuzzy Logic function
+ * check that fuzzy controller makes sense, document problems with author design (NOBS is always an integer)
  * plot metrics to compare non-Fuzzy to Fuzzy controller
