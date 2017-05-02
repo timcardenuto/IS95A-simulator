@@ -36,8 +36,8 @@
 %#########################################################################
 
 function [T_DROP, SHW] = IS95A_fuzzycontroller(NOBS, CHRM, ...
-    tdrop_low_center, tdrop_medium_center, tdrop_high_center, ...
-    shw_low_center, shw_medium_center, shw_high_center)
+                tdrop_low_center, tdrop_medium_center, tdrop_high_center, ...
+                shw_low_center, shw_medium_center, shw_high_center)
 
     % "Fuzzify" the inputs at the given measurement values
     % this output known as "firing strength" or "rule weight"
