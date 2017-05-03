@@ -35,7 +35,8 @@ function MS = generateMS(num_calls, call_arrival_mean, call_duration_mean, ...
         zeros(1,6),'remaining',zeros(1,BTS_num*BTS_channel_num));
     MS(num_calls).x = 0;    % this pre-allocates the structure length
 
-    call_interval = exprnd(call_arrival_mean,[num_calls 1]);   % Poisson process has exponentially distributed inter-arrival times
+%     call_interval = exprnd(call_arrival_mean,[num_calls 1]);   % Poisson process has exponentially distributed inter-arrival times
+    call_interval = poissrnd(call_arrival_mean,[num_calls 1]);
     call_duration = exprnd(call_duration_mean,[num_calls 1]);  % average hold time = 120 seconds
     
     for i=1:num_calls

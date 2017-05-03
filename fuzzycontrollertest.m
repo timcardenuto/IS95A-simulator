@@ -100,7 +100,7 @@ stem(tdrop_medium_coa2,1,'r')
 stem(tdrop_high_coa2,1,'r')
 xlabel('RSS Power (dB)');
 ylabel('MF Grade');
-title('Output TDROP Membership Functions');
+title('Output T\_DROP Membership Functions');
 legend('Low', 'Medium', 'High')
 
 subplot(4,1,4);
@@ -114,7 +114,7 @@ stem(shw_high_coa,1,'b')
 stem(shw_low_coa2,1,'r')
 stem(shw_medium_coa2,1,'r')
 stem(shw_high_coa2,1,'r')
-xlabel('???');
+xlabel('T\_ADD - T\_DROP difference (dB)');
 ylabel('MF Grade');
 title('Output SHW Membership Functions');
 legend('Low', 'Medium', 'High')
@@ -135,15 +135,15 @@ for i=1:length(nobs_x)
 end
 
 figure()
-mesh(nobs_x,chrm_x,tdrop)  % rule surface
-xlabel('NOBS');
-ylabel('CHRM');
-zlabel('T_DROP');
+mesh(chrm_x,nobs_x,tdrop)  % rule surface
+ylabel('NOBS');
+xlabel('CHRM');
+zlabel('T\_DROP');
 title('T\_DROP rule surface');
 
 figure()
-mesh(nobs_x,chrm_x,shw)  % rule surface
-xlabel('NOBS');
-ylabel('CHRM');
+mesh(chrm_x,nobs_x,shw)  % rule surface
+ylabel('NOBS');
+xlabel('CHRM');
 zlabel('SHW');
 title('SHW rule surface');

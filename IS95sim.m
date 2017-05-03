@@ -5,17 +5,17 @@ FIS_on = 0;     % switch to use FIS for T_ADD, T_DROP updates. without this, the
 BTS_num = 19;
 BTS_center = 10000;     % plot center in meters from 0,0 point, first BTS
 BTS_radius = 1000;      % meters
-BTS_channel_num = 20;   % traffic channels
+BTS_channel_num = 10;   % traffic channels
 num_calls = 100;
-call_arrival_mean = 6;    % seconds, minutes??
+call_arrival_mean = .6;    % seconds, minutes??
 call_duration_mean = 120; % seconds
 velocity_mean = 6;
 velocity_stddev = 10;
 velocity_limit = 16;
 
 % TODO call mobility doesn't seem to be enough to cause handoffs, or power levels aren't set well....
-T_ADD = -90;
-T_DROP = -100;
+T_ADD = -110;
+T_DROP = -120;
 T_TDROP = 5;
 
 
@@ -209,8 +209,8 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
                     end
                 end
                 
-                for free=1:BTS(n).free_channels     % assign as many open channels as the MS and BTS support
-%                 if (BTS(n).free_channels > 0)      % if this BTS has an open channel
+%                 for free=1:BTS(n).free_channels     % assign as many open channels as the MS and BTS support
+                if (BTS(n).free_channels > 0)      % if this BTS has an open channel
                     
                     % this MS has an open active set slot
                     if (find(mobile(current_calls(i)).active==0))           
@@ -396,13 +396,17 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
             for q=1:BTS_num
                CHRM = CHRM + sum(BTS(q).free_channels);
             end
-            tdrop_low_center = -94;         % Center Average (CA) of output MF's
-            tdrop_medium_center = -92;      % these can be shown to be roughly equal to Centroid of Average (COA)
-            tdrop_high_center = -90;        % because the MF are triangle functions
+%             tdrop_low_center = -94;         % Center Average (CA) of output MF's
+%             tdrop_medium_center = -92;      % these can be shown to be roughly equal to Centroid of Average (COA)
+%             tdrop_high_center = -90;        % because the MF are triangle functions
+            
+            tdrop_low_center = -125;         % My choices
+            tdrop_medium_center = -115;
+            tdrop_high_center = -105; 
 
-            shw_low_center = 1.5;
-            shw_medium_center = 2.5;
-            shw_high_center = 3.5;
+            shw_low_center = 1;
+            shw_medium_center = 5;
+            shw_high_center = 10;
             % Actual FIS
             [mobile(current_calls(i)).T_DROP, SHW] = IS95A_fuzzycontroller(NOBS, CHRM, ...
                     tdrop_low_center, tdrop_medium_center, tdrop_high_center, ...
@@ -512,6 +516,10 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     plot(time,rss,'.k')
     
     drawnow;
+    
+    if(time == time_step)   % one time pause to let me move windows around
+        pause
+    end
 %     pause;
     pause(0.1);
 end

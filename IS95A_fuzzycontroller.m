@@ -1,5 +1,5 @@
 %% IS-95A Fuzzy Logic Controller
-% This is a 2 Input, 2 Output, 9 Rule Product Inference Engine (PIE)
+% This is a 2 Input, 2 Output, 9 Rule Minimum Inference Engine (MIE)
 % with Centroid of Area (COA) Defuzzification
 %
 % Inputs
@@ -49,53 +49,53 @@ function [T_DROP, SHW] = IS95A_fuzzycontroller(NOBS, CHRM, ...
     chrm_medium_MFgrade = max([0 min([(CHRM-2)/(6-2) (10-CHRM)/(10-6)])]);
     chrm_high_MFgrade = max([0 min([(CHRM-6)/(10-6) 1])]);
     
-    %  Perform PIE for all rules
+    %  Perform MIE for all rules
     wR = zeros(1,9);
     tdrop_center = 0;
     shw_center = 0;
 
     % Rule 1, if NOBS is low and CHRM is low then TDROP is high and SHW is high
-    wR(1) = nobs_low_MFgrade * chrm_low_MFgrade;                % 2 inputs, AND operator (min or *)
+    wR(1) = min(nobs_low_MFgrade,chrm_low_MFgrade);                % 2 inputs, AND operator (min or *)
     tdrop_center = tdrop_center + wR(1) * tdrop_high_center;    % using CA or COA of output MF
     shw_center = shw_center + wR(1) * shw_high_center;
 
     % Rule 2, if NOBS is low and CHRM is medium then TDROP is medium and SHW is medium
-    wR(2) = nobs_low_MFgrade * chrm_medium_MFgrade;
+    wR(2) = min(nobs_low_MFgrade,chrm_medium_MFgrade);
     tdrop_center = tdrop_center + wR(2) * tdrop_medium_center;
     shw_center = shw_center + wR(2) * shw_medium_center;
 
     % Rule 3, if NOBS is low and CHRM is high then TDROP is low and SHW is low
-    wR(3) = nobs_low_MFgrade * chrm_high_MFgrade;
+    wR(3) = min(nobs_low_MFgrade,chrm_high_MFgrade);
     tdrop_center = tdrop_center + wR(3) * tdrop_low_center;
     shw_center = shw_center + wR(3) * shw_low_center;
 
     % Rule 4, if NOBS is medium and CHRM is low then TDROP is high and SHW is high
-    wR(4) = nobs_medium_MFgrade * chrm_low_MFgrade; 
+    wR(4) = min(nobs_medium_MFgrade,chrm_low_MFgrade); 
     tdrop_center = tdrop_center + wR(4) * tdrop_high_center; 
     shw_center = shw_center + wR(4) * shw_high_center;
 
     % Rule 5, if NOBS is medium and CHRM is medium then TDROP is medium and SHW is medium
-    wR(5) = nobs_medium_MFgrade * chrm_medium_MFgrade;
+    wR(5) = min(nobs_medium_MFgrade,chrm_medium_MFgrade);
     tdrop_center = tdrop_center + wR(5) * tdrop_medium_center;
     shw_center = shw_center + wR(5) * shw_medium_center;
 
     % Rule 6, if NOBS is medium and CHRM is high then TDROP is low and SHW is low
-    wR(6) = nobs_medium_MFgrade * chrm_high_MFgrade;
+    wR(6) = min(nobs_medium_MFgrade,chrm_high_MFgrade);
     tdrop_center = tdrop_center + wR(6) * tdrop_low_center;
     shw_center = shw_center + wR(6) * shw_low_center;
 
     % Rule 7, if NOBS is high and CHRM is low then TDROP is high and SHW is high
-    wR(7) = nobs_high_MFgrade * chrm_low_MFgrade; 
+    wR(7) = min(nobs_high_MFgrade,chrm_low_MFgrade); 
     tdrop_center = tdrop_center + wR(7) * tdrop_high_center; 
     shw_center = shw_center + wR(7) * shw_high_center;
 
     % Rule 8, if NOBS is high and CHRM is medium then TDROP is high and SHW is high
-    wR(8) = nobs_high_MFgrade * chrm_medium_MFgrade;
+    wR(8) = min(nobs_high_MFgrade,chrm_medium_MFgrade);
     tdrop_center = tdrop_center + wR(8) * tdrop_high_center;
     shw_center = shw_center + wR(8) * shw_high_center;
 
     % Rule 9, if NOBS is high and CHRM is high then TDROP is medium and SHW is medium
-    wR(9) = nobs_high_MFgrade * chrm_high_MFgrade;
+    wR(9) = min(nobs_high_MFgrade,chrm_high_MFgrade);
     tdrop_center = tdrop_center + wR(9) * tdrop_medium_center;
     shw_center = shw_center + wR(9) * shw_medium_center;
 
