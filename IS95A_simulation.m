@@ -517,10 +517,9 @@ for time=time_step:time_step:mobile(num_calls).call_end_time
     
     drawnow;
     
-    if(time == time_step)   % one time pause to let me move windows around
-        pause
-    end
-%     pause;
+%     if(time == time_step)   % one time pause to let me move windows around
+%         pause
+%     end
     pause(0.1);
 end
 
